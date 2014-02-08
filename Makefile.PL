@@ -10,6 +10,7 @@ WriteMakefile(
     PL_FILES      => {},
     PREREQ_PM     => {
         'Test::More'  => 0,
+        'Test::Deep'  => 0,
         'Net::Detect' => 0,
         'Test::Warn'  => 0,
 
@@ -22,6 +23,7 @@ WriteMakefile(
         'HTML::Entities'           => 0,
 
         'DateTime'               => 0,
+        'DateTime::TimeZone'     => 0,
         'Carp'                   => 0,
         'DateTime::Format::Atom' => 0,
     },

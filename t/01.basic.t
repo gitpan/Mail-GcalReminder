@@ -1,4 +1,4 @@
-use Test::More tests => 58;
+use Test::More tests => 70;
 
 use Mail::GcalReminder;
 use Test::Exception;
@@ -31,6 +31,26 @@ ok( defined &Mail::GcalReminder::app_name, 'has app_name()' );
 is( $gcr->app_name, 'you@example.com (Mail::GcalReminder)', 'app_name get default' );
 is( $gcr->app_name('my app'), 'my app', 'app_name set' );
 
+ok( defined &Mail::GcalReminder::time_zone, 'has time_zone()' );
+is( $gcr->time_zone,            'UTC',     'time_zone get default' );
+is( $gcr->time_zone('CST6CDT'), 'CST6CDT', 'time_zone set' );
+
+ok( defined &Mail::GcalReminder::include_event_dt_obj, 'has include_event_dt_obj()' );
+is( $gcr->include_event_dt_obj,      '0', 'include_event_dt_obj get default' );
+is( $gcr->include_event_dt_obj('1'), '1', 'include_event_dt_obj set' );
+
+eval { $gcr->time_zone(undef) };
+like( $@, qr/DateTime::TimeZone does not recognize the given name/, 'time_zone undef fatal' );
+is( $gcr->time_zone, 'CST6CDT', 'time_zone (undef) still set' );
+
+eval { $gcr->time_zone('') };
+like( $@, qr/DateTime::TimeZone does not recognize the given name/, 'time_zone empty fatal' );
+is( $gcr->time_zone, 'CST6CDT', 'time_zone (empty) still set' );
+
+eval { $gcr->time_zone('Foo') };
+like( $@, qr/DateTime::TimeZone does not recognize the given name/, 'time_zone invalid fatal' );
+is( $gcr->time_zone, 'CST6CDT', 'time_zone (invalid) still set' );
+
 ok( defined &Mail::GcalReminder::cc_self, 'has cc_self()' );
 is( $gcr->cc_self,    1, 'cc_self get default' );
 is( $gcr->cc_self(0), 0, 'cc_self set' );
@@ -55,7 +75,7 @@ is( $gcr->base_date($base), $base, 'base_date set valid' );
 throws_ok { $gcr->base_date('whatever') } qr/only DateTime objects are supported/, 'base_date set invalid';
 
 ok( defined &Mail::GcalReminder::no_guests_is_ok, 'has no_guests_is_ok()' );
-is( $gcr->essg_hax_ver,       0.44, 'essg_hax_ver get default' );
+is( $gcr->essg_hax_ver,       0.82, 'essg_hax_ver get default' );
 is( $gcr->essg_hax_ver(0.42), 0.42, 'essg_hax_ver set' );
 
 ok( defined &Mail::GcalReminder::warning,      'sub  warning()' );

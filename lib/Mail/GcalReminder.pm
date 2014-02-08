@@ -10,7 +10,7 @@ use URI                      ();
 use XML::Atom::Feed          ();
 use HTML::Entities           ();
 
-our $VERSION = '0.1';
+our $VERSION = '0.2';
 
 has gmail_user => ( is => 'rw', required => 1 );
 
@@ -20,6 +20,17 @@ has app_name => ( is => 'rw', lazy => 1, builder => 1 );
 
 sub _build_app_name { return $_[0]->gmail_user . ' (' . __PACKAGE__ . ')' }
 
+has time_zone => (
+    is      => 'rw',
+    default => sub { 'UTC' },
+    isa     => sub {
+        require DateTime::TimeZone;
+        my $tz;
+        eval { $tz = DateTime::TimeZone->new( name => $_[0] ) };
+        die "DateTime::TimeZone does not recognize the given name" unless $tz;
+    }
+);
+
 has cc_self => ( is => 'rw', default => sub { 1 } );
 
 has try_receipts => ( is => 'rw', default => sub { 1 } );
@@ -28,17 +39,19 @@ has try_priority => ( is => 'rw', default => sub { 1 } );
 
 has no_guests_is_ok => ( is => 'rw', default => sub { 1 } );
 
+has include_event_dt_obj => ( is => 'rw', default => sub { 0 } );
+
 has base_date => (
     is        => 'rw',
     'lazy'    => 1,
     'default' => sub {
         require DateTime;
-        return DateTime->now();
+        return DateTime->now( time_zone => $_[0]->time_zone );
     },
     'isa' => sub { die "only DateTime objects are supported" unless ref( $_[0] ) eq 'DateTime' },
 );
 
-has essg_hax_ver => ( is => 'rw', 'default' => sub { 0.44 } );
+has essg_hax_ver => ( is => 'rw', 'default' => sub { 0.82 } );
 
 has warning_code => (
     is        => 'rw',
@@ -76,6 +89,21 @@ has debug => ( is => 'rw', default => sub { 0 } );
 
 has gcal_cache => ( is => 'rw', default => sub { {} }, isa => sub { die "gcal_cache must be a hashref" unless ref( $_[0] ) eq 'HASH' } );
 
+my %mmm_name_to_n = (
+    'Jan' => 1,
+    'Feb' => 2,
+    'Mar' => 3,
+    'Apr' => 4,
+    'May' => 5,
+    'Jun' => 6,
+    'Jul' => 7,
+    'Aug' => 8,
+    'Sep' => 9,
+    'Oct' => 10,
+    'Nov' => 11,
+    'Dec' => 12,
+);
+
 # TODO: clear_gcal() ?
 sub get_gcal {
     my ( $self, $gcal ) = @_;
@@ -100,17 +128,32 @@ sub get_gcal {
 
         my %feed;
 
+        if ( $self->include_event_dt_obj ) {
+            require DateTime;
+        }
+
         for my $entry ( $feed->entries() ) {
             my $summary = $entry->summary();
 
-            my ($_dt) = split /\<br\s*\/?\>/, $summary;
+            my ($_dt) = split /\<br\s*\/?\>/i, $summary;
             $_dt =~ s/\&nbsp\;[\n\r]*/ /g;    # this is nbsp char
             my ( $date, $year, $time ) = $_dt =~ m/^\s*when\:\s*([^,]+)\s*\,\s*(\d+)\s*(\S+)?/i;
 
-            # next if !$date;
+            if ( !$date ) {
+                $self->warning("Could not parse date from summary: $_dt\n\tOrig: $summary");
+                next;
+            }
+
             # next unless exists $target_dates{$date};
 
             $time ||= '???';
+
+            my $event_dt_obj;
+            if ( $self->include_event_dt_obj ) {
+                my ( $dw, $mon, $day ) = split( /\s+/, $date );
+                my $mon_n = $mmm_name_to_n{$mon};
+                $event_dt_obj = DateTime->new( year => $year, month => $mon_n, day => $day, hour => 0, minute => 1, second => 0, time_zone => $self->time_zone );
+            }
 
             my ($who) = $summary =~ m/Who:(.*)\n/;
             $who ||= '';
@@ -121,15 +164,25 @@ sub get_gcal {
                 $w !~ m/\@/ ? () : $w;
             } split( /,/, $who );
 
+            my $desc = $entry->content || 'Thanks!';
+            $desc = $desc->body if ref($desc);
+            $desc ||= 'Thanks!';    # in case ->body resets it
+            $desc = undef() if defined $desc && $desc !~ m/Event Description: /ms;
+            if ( defined $desc ) {
+                $desc =~ s/.*Event Description: //ms;
+                $desc = HTML::Entities::decode_entities($desc);
+            }
+
             push @{ $feed{$date} }, {
                 'title' => HTML::Entities::decode_entities( $entry->title() ),
+                'desc'  => $desc,
                 'url'   => $entry->link()->href(),
                 'date'  => $date,
                 'year'  => $year,
                 'time'  => $time,
+                ( defined $event_dt_obj ? ( 'event_dt_obj' => $event_dt_obj ) : () ),
 
                 # TODO: 'where'             => $where,
-                # TODO: 'desc' => '…',
                 'guests'            => \@who,
                 'gcal_title'        => $feed->title(),
                 'gcal_uri'          => $uri,
@@ -282,17 +335,17 @@ Mail::GcalReminder - Send reminders to Google calendar event guests
 
 =head1 VERSION
 
-This document describes Mail::GcalReminder version 0.1
+This document describes Mail::GcalReminder version 0.2
 
 =head1 SYNOPSIS
 
     use Mail::GcalReminder;
-    
+
     my $gcr = Mail::GcalReminder->new(
         'gmail_user' => "…@gmail.com",
         'gmail_pass' => "…", # !!!! chmod 700 !!
         'app_name' => 'Acme Co, Auto Notifier',
-    ); 
+    );
 
     $gcr->send_reminders({
         'gcal' => '…%40group.calendar.google.com/private-…', # !!!! chmod 700 !!
@@ -300,7 +353,7 @@ This document describes Mail::GcalReminder version 0.1
         'min_events' => 1,
         'max_events' => 1,
         'subject' => "[thing schedule] 1 week reminder for you thing",
-        'body' => Be there or be square! Call me if you have questions: 867-5309.',
+        'body' => 'Be there or be square! Call me if you have questions: 867-5309.',
     });
 
     $gcr->send_reminders({
@@ -315,7 +368,7 @@ This document describes Mail::GcalReminder version 0.1
         },
         'body' => sub {
             my ($self,$event) = @_;
-            … 
+            …
             return 'All details are in the calendar, see you in five weeks!';
        },
     });
@@ -330,7 +383,7 @@ You can set gmail to send you reminders for stuff in your calendar but you can�
 
 This module allows you to create scripts that grab a goodle calendar and send reminders to guests from your gmail account.
 
-=head1 INTERFACE 
+=head1 INTERFACE
 
 =head2 new() attribute/get-set methods
 
@@ -368,7 +421,17 @@ Boolean, default 1, if an event has no guests do not count it as a failure in se
 
 =item * base_date
 
-A date time object, default DateTime->now(), to base 'in_advance' on.
+A date time object, default DateTime->now( time_zone => $gcal->time_zone ), to base 'in_advance' on.
+
+=item * time_zone
+
+Time zone to use in default 'base_date' and the event_dt_obj object.
+
+Defaults to UTC. Value given must be sutiable for DateTime::TimeZone->new’s name attribute.
+
+=item * include_event_dt_obj
+
+Boolean, default 1, calculate and include the key event_dt_obj in the “hashref of event details”
 
 =item * essg_hax_ver
 
@@ -407,7 +470,7 @@ A hashref that contains a cache of fetched and parsed calendars. We cache so we 
 
 =head2 methods
 
-=head3 send_reminders({…}) 
+=head3 send_reminders({…})
 
 This sends reminders per the configuration hashref you pass in (described below).
 
@@ -425,7 +488,7 @@ The send_reminders() configuration hashref has the following keys:
 
 The calendar whose events you are interested in.
 
-The value is part of the XML (under “Calendar Details” in your google calendar UI). 
+The value is part of the XML (under “Calendar Details” in your google calendar UI).
 
 Take the URL and remove 'https://www.google.com/calendar/feeds/' from the beggining and '/basic' from the end.
 
@@ -449,7 +512,7 @@ Name to use in messages, defaults to 'gcal'.
 
 This is how we find the events we are interested in. If your your base_date is the default and you are sending remionders for 1 week 'in_advance' then any events 7 days from right now are what we are looking for.
 
-The value is an array ref of arguments sutiable for DateTime’s add method. 
+The value is an array ref of arguments sutiable for DateTime’s add method.
 
 =item 'subject'
 
@@ -497,6 +560,10 @@ The “hashref of event details” has the following keys:
 
 Name of the event.
 
+=item 'desc'
+
+Description of event. This is undef if there is no description.
+
 =item 'url'
 
 URL of the event.
@@ -516,6 +583,10 @@ Time of the event.
 =item 'guests'
 
 An array ref of event guests.
+
+=item event_dt_obj
+
+This will exist if $gcr->include_event_dt_obj is true. It is a L<DateTime> object of the event’s date (time one minute past midnight). The time zone is $gcr->time_zone
 
 =item 'gcal_title'
 
@@ -565,6 +636,8 @@ All messages are sent to $gcr->warnings().
 
 =item C<< No guests for “%s”. >>
 
+=item C<< Could not parse date from summary: %s\nOrig: %s >>
+
 =item C<< Email::Send::SMTP::Gmail is newer than %gcr->essg_hax_ver, skipping header-via-charset hack >>
 
 =back
@@ -590,6 +663,10 @@ L<Carp>
 L<DateTime::Format::Atom>
 
 For Testing: L<Test::More>, L<Net::Detect>, L<Test::Warn>
+
+=head1 TODO
+
+Support and/or outline how a config file might be used to various advantages.
 
 =head1 INCOMPATIBILITIES
 

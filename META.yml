@@ -21,13 +21,15 @@ requires:
   Carp: 0
   DateTime: 0
   DateTime::Format::Atom: 0
+  DateTime::TimeZone: 0
   Email::Send::SMTP::Gmail: 0
   HTML::Entities: 0
   Moo: 0
   Net::Detect: 0
   Role::Multiton::New: 0
+  Test::Deep: 0
   Test::More: 0
   Test::Warn: 0
   URI: 0
   XML::Atom::Feed: 0
-version: 0.1
+version: 0.2

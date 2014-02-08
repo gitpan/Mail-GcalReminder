@@ -9,6 +9,7 @@ my $builder = Module::Build->new(
     dist_version_from => 'lib/Mail/GcalReminder.pm',
     requires          => {
         'Test::More'  => 0,
+        'Test::Deep'  => 0,
         'Net::Detect' => 0,
         'Test::Warn'  => 0,
 
@@ -21,6 +22,7 @@ my $builder = Module::Build->new(
         'HTML::Entities'           => 0,
 
         'DateTime'               => 0,
+        'DateTime::TimeZone'     => 0,
         'Carp'                   => 0,
         'DateTime::Format::Atom' => 0,
     },
