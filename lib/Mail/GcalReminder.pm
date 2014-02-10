@@ -10,7 +10,7 @@ use URI                      ();
 use XML::Atom::Feed          ();
 use HTML::Entities           ();
 
-our $VERSION = '0.2';
+our $VERSION = '0.3';
 
 has gmail_user => ( is => 'rw', required => 1 );
 
@@ -90,18 +90,18 @@ has debug => ( is => 'rw', default => sub { 0 } );
 has gcal_cache => ( is => 'rw', default => sub { {} }, isa => sub { die "gcal_cache must be a hashref" unless ref( $_[0] ) eq 'HASH' } );
 
 my %mmm_name_to_n = (
-    'Jan' => 1,
-    'Feb' => 2,
-    'Mar' => 3,
-    'Apr' => 4,
-    'May' => 5,
-    'Jun' => 6,
-    'Jul' => 7,
-    'Aug' => 8,
-    'Sep' => 9,
-    'Oct' => 10,
-    'Nov' => 11,
-    'Dec' => 12,
+    'jan' => 1,
+    'feb' => 2,
+    'mar' => 3,
+    'apr' => 4,
+    'may' => 5,
+    'jun' => 6,
+    'jul' => 7,
+    'aug' => 8,
+    'sep' => 9,
+    'oct' => 10,
+    'nov' => 11,
+    'dec' => 12,
 );
 
 # TODO: clear_gcal() ?
@@ -137,7 +137,8 @@ sub get_gcal {
 
             my ($_dt) = split /\<br\s*\/?\>/i, $summary;
             $_dt =~ s/\&nbsp\;[\n\r]*/ /g;    # this is nbsp char
-            my ( $date, $year, $time ) = $_dt =~ m/^\s*when\:\s*([^,]+)\s*\,\s*(\d+)\s*(\S+)?/i;
+
+            my ( $date, $year, $time ) = __get_date_year_time_from_dt($_dt);
 
             if ( !$date ) {
                 $self->warning("Could not parse date from summary: $_dt\n\tOrig: $summary");
@@ -151,7 +152,7 @@ sub get_gcal {
             my $event_dt_obj;
             if ( $self->include_event_dt_obj ) {
                 my ( $dw, $mon, $day ) = split( /\s+/, $date );
-                my $mon_n = $mmm_name_to_n{$mon};
+                my $mon_n = $mmm_name_to_n{ lc $mon };
                 $event_dt_obj = DateTime->new( year => $year, month => $mon_n, day => $day, hour => 0, minute => 1, second => 0, time_zone => $self->time_zone );
             }
 
@@ -323,6 +324,54 @@ sub send_gmail {
     return 1;
 }
 
+sub __get_date_year_time_from_dt {
+    my ($_dt) = @_;
+
+    # eek, patches/module please! perhaps a URI-param to get the same format regardless of locale/user setting?
+    my ( $date, $year, $time ) = $_dt =~ m/^\s*when\:\s*([^,]+\s*\,|\w+\s+\w+\s+\w+)\s*(\d+)\s*(\S+)?/i;
+    $date =~ s/\s*\,$//;
+
+    my ( $x, $y, $z ) = split( /\s+/, $date );
+    if ( $x =~ m/^\d+$/ ) {
+        if ( exists $mmm_name_to_n{ lc $y } ) {
+            $date = "$z $y $x";
+        }
+        elsif ( exists $mmm_name_to_n{ lc $z } ) {
+            $date = "$y $z $x";
+        }
+        else {
+            $date = undef;    # can’t figure month
+        }
+    }
+    elsif ( $y =~ m/^\d+$/ ) {
+        if ( exists $mmm_name_to_n{ lc $x } ) {
+            $date = "$z $x $y";
+        }
+        elsif ( exists $mmm_name_to_n{ lc $z } ) {
+            $date = "$x $z $y";
+        }
+        else {
+            $date = undef;    # can’t figure month
+        }
+    }
+    elsif ( $z =~ m/^\d+$/ ) {
+        if ( exists $mmm_name_to_n{ lc $x } ) {
+            $date = "$y $x $z";
+        }
+        elsif ( exists $mmm_name_to_n{ lc $y } ) {
+            $date = "$x $y $z";
+        }
+        else {
+            $date = undef;    # can’t figure month
+        }
+    }
+    else {
+        $date = undef;        # can’t figure day
+    }
+
+    return ( $date, $year, $time );
+}
+
 1;
 
 __END__
@@ -335,7 +384,7 @@ Mail::GcalReminder - Send reminders to Google calendar event guests
 
 =head1 VERSION
 
-This document describes Mail::GcalReminder version 0.2
+This document describes Mail::GcalReminder version 0.3
 
 =head1 SYNOPSIS
 
@@ -638,7 +687,7 @@ All messages are sent to $gcr->warnings().
 
 =item C<< Could not parse date from summary: %s\nOrig: %s >>
 
-=item C<< Email::Send::SMTP::Gmail is newer than %gcr->essg_hax_ver, skipping header-via-charset hack >>
+=item C<< Email::Send::SMTP::Gmail is newer than $gcr->essg_hax_ver, skipping header-via-charset hack >>
 
 =back
 
@@ -667,6 +716,8 @@ For Testing: L<Test::More>, L<Net::Detect>, L<Test::Warn>
 =head1 TODO
 
 Support and/or outline how a config file might be used to various advantages.
+
+Use parser and/or params to handle non-en and better handle various date formats.
 
 =head1 INCOMPATIBILITIES
 

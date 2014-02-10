@@ -32,4 +32,4 @@ requires:
   Test::Warn: 0
   URI: 0
   XML::Atom::Feed: 0
-version: 0.2
+version: 0.3

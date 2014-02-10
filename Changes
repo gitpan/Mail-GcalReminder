@@ -1,6 +1,11 @@
 Revision history for Mail-GcalReminder
 
-0.2  ???
+0.3  Sun Feb  9 21:21:03 2014
+    - add date to v0.2 Changes entry
+    - POD sigil
+    - handle second date format, note other TODOs regarding similar limits
+
+0.2  Fri Feb  7 19:54:19 2014
     - POD example typo fix
     - TODO about config file
     - essg_hax_ver version update

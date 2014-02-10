@@ -1,4 +1,4 @@
-use Test::More tests => 70;
+use Test::More tests => 72;
 
 use Mail::GcalReminder;
 use Test::Exception;
@@ -135,3 +135,16 @@ is( $gcr->_build_signature(), $sig, '_build_signature RV' );
 ok( defined &Mail::GcalReminder::get_gcal,       'sub get_gcal()' );
 ok( defined &Mail::GcalReminder::send_reminders, 'sub send_reminders()' );
 ok( defined &Mail::GcalReminder::send_gmail,     'sub send_gmail()' );
+
+is_deeply(
+    [ Mail::GcalReminder::__get_date_year_time_from_dt('When: Fri Mar 14, 2014 12pm to 12:45pm CST') ],
+    [ 'Fri Mar 14', 2014, '12pm' ],
+    'can parse when date format 1'
+);
+
+is_deeply(
+    [ Mail::GcalReminder::__get_date_year_time_from_dt(' When: Tue 18 Feb 1986 19:00 to 20:00 CST') ],
+    [ 'Tue Feb 18', 1986, '19:00' ],
+    'can parse when date format 2'
+);
+
