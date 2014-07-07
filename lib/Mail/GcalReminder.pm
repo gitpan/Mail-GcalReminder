@@ -6,11 +6,10 @@ use Moo;
 with 'Role::Multiton::New';
 
 use Email::Send::SMTP::Gmail ();
-use URI                      ();
-use XML::Atom::Feed          ();
-use HTML::Entities           ();
+use XML::Simple              ();
+use DateTime                 ();
 
-our $VERSION = '0.3';
+our $VERSION = '0.4';
 
 has gmail_user => ( is => 'rw', required => 1 );
 
@@ -41,11 +40,30 @@ has no_guests_is_ok => ( is => 'rw', default => sub { 1 } );
 
 has include_event_dt_obj => ( is => 'rw', default => sub { 0 } );
 
+has http => (
+    is        => 'rw',
+    'lazy'    => 1,
+    'default' => sub {
+        require HTTP::Tiny;
+        return HTTP::Tiny->new();
+    },
+    isa => sub { die "http() must have a mirror method" unless $_[0]->can('mirror') },
+);
+
+has workdir => (
+    is        => 'rw',
+    'lazy'    => 1,
+    'default' => sub {
+        require File::Temp;
+        return File::Temp->newdir();
+    },
+    isa => sub { die "workdir() must be a directory" unless -d $_[0] },
+);
+
 has base_date => (
     is        => 'rw',
     'lazy'    => 1,
     'default' => sub {
-        require DateTime;
         return DateTime->now( time_zone => $_[0]->time_zone );
     },
     'isa' => sub { die "only DateTime objects are supported" unless ref( $_[0] ) eq 'DateTime' },
@@ -74,8 +92,8 @@ has date_format_obj => (
     is        => 'ro',
     'lazy'    => 1,
     'default' => sub {
-        require DateTime::Format::Atom;
-        return DateTime::Format::Atom->new();
+        require DateTime::Format::ISO8601;
+        return DateTime::Format::ISO8601->new();
     },
 );
 
@@ -88,21 +106,6 @@ sub _build_signature {
 has debug => ( is => 'rw', default => sub { 0 } );
 
 has gcal_cache => ( is => 'rw', default => sub { {} }, isa => sub { die "gcal_cache must be a hashref" unless ref( $_[0] ) eq 'HASH' } );
-
-my %mmm_name_to_n = (
-    'jan' => 1,
-    'feb' => 2,
-    'mar' => 3,
-    'apr' => 4,
-    'may' => 5,
-    'jun' => 6,
-    'jul' => 7,
-    'aug' => 8,
-    'sep' => 9,
-    'oct' => 10,
-    'nov' => 11,
-    'dec' => 12,
-);
 
 # TODO: clear_gcal() ?
 sub get_gcal {
@@ -119,81 +122,73 @@ sub get_gcal {
         my $single_event = 1;                                                                                                                                                                    # ? DO THIS ALL THE TIME?
         my $addt = $single_event ? '&singleevents=true' : '';
 
-        my $uri = URI->new("http://www.google.com/calendar/feeds/$gcal/basic?$query_string$addt") || die "URI object fail: http://www.google.com/calendar/feeds/$gcal/basic?$query_string";
-        local $ENV{'PERL_LWP_SSL_VERIFY_HOSTNAME'} = 0;
+        # https://developers.google.com/google-apps/calendar/v2/reference#Calendar_feeds
+        my $url = "http://www.google.com/calendar/feeds/$gcal/full?$query_string$addt";
 
-        my $feed = XML::Atom::Feed->new($uri) || die XML::Atom::Feed->errstr() . " ($uri)";
-
-        # my $datetime_obj = ;
-
-        my %feed;
-
-        if ( $self->include_event_dt_obj ) {
-            require DateTime;
+        my $path = $gcal;
+        $path =~ s{/}{_slash_}g;
+        my $file = $self->workdir . "/$path.xml";                                                                                                                                                # TODO: make portable via File::Spec
+        my $res = $self->http->mirror( $url, $file );
+        if ( !$res->{success} ) {
+            die "Could not fetch “$url”: $res->{reason}\n";
         }
 
-        for my $entry ( $feed->entries() ) {
-            my $summary = $entry->summary();
+        my $xml = eval { XML::Simple::XMLin( $file, ForceArray => [ 'gd:who', 'link' ] ) };
+        if ($@) {
+            die "Could not parse XML ($file): $@";
+        }
 
-            my ($_dt) = split /\<br\s*\/?\>/i, $summary;
-            $_dt =~ s/\&nbsp\;[\n\r]*/ /g;    # this is nbsp char
+        my %cal;
 
-            my ( $date, $year, $time ) = __get_date_year_time_from_dt($_dt);
+        my $gcal_title        = $xml->{title}{content};
+        my $gcal_updated      = $xml->{updated};
+        my $gcal_tz           = $xml->{'gCal:timezone'}{'value'};
+        my $gcal_updated_date = defined $gcal_updated ? $self->date_format_obj->parse_datetime($gcal_updated)->format_cldr("E MMM d") : undef;
 
-            if ( !$date ) {
-                $self->warning("Could not parse date from summary: $_dt\n\tOrig: $summary");
-                next;
+        for my $entry_key ( sort { $xml->{entry}{$a}{'gd:when'}{'startTime'} cmp $xml->{entry}{$b}{'gd:when'}{'startTime'} } keys %{ $xml->{entry} } ) {
+            my $entry = $xml->{entry}{$entry_key};
+
+            my $event_dt_obj = $self->date_format_obj->parse_datetime( $entry->{'gd:when'}{'startTime'} );
+
+            # $event_dt_obj->set_time_zone($gcal_tz);
+
+            # TODO: factor author in attendees ?
+            # 'author' => {
+            #   'email' => 'steeplechase.public.talks@gmail.com',
+            #   'name' => 'Steeplechase Public Talks Coord'
+            # },
+
+            my $attendees_ar = $entry->{'gd:who'};
+            my @who;
+            if ( defined $attendees_ar && ref($attendees_ar) eq 'ARRAY' ) {
+                @who = map {
+                    my $str = $_->{email};
+                    $str && $str !~ m/\@group.calendar.google.com$/ ? $str : ()
+                } @{$attendees_ar};
             }
 
-            # next unless exists $target_dates{$date};
+            my $date = $event_dt_obj->format_cldr("E MMM d");
+            push @{ $cal{$date} }, {
+                'title' => $entry->{title}{content},
+                'desc'  => $entry->{content}{content},
 
-            $time ||= '???';
+                'url' => $entry->{link}[0]{type} eq 'text/html' ? $entry->{link}[0]{href} : $entry->{link}[1]{href},
+                'date' => $date,
+                'year' => $event_dt_obj->format_cldr("YYYY"),
+                'time' => $event_dt_obj->format_cldr("h:mm a"),
+                ( $self->include_event_dt_obj ? ( 'event_dt_obj' => $event_dt_obj ) : () ),
+                'location' => $entry->{'gd:where'}{valueString},
+                'guests'   => \@who,
 
-            my $event_dt_obj;
-            if ( $self->include_event_dt_obj ) {
-                my ( $dw, $mon, $day ) = split( /\s+/, $date );
-                my $mon_n = $mmm_name_to_n{ lc $mon };
-                $event_dt_obj = DateTime->new( year => $year, month => $mon_n, day => $day, hour => 0, minute => 1, second => 0, time_zone => $self->time_zone );
-            }
-
-            my ($who) = $summary =~ m/Who:(.*)\n/;
-            $who ||= '';
-            my @who = map {
-                my $w = $_;
-                $w =~ s/\A\s+//g;
-                $w =~ s/\s+\z//g;
-                $w !~ m/\@/ ? () : $w;
-            } split( /,/, $who );
-
-            my $desc = $entry->content || 'Thanks!';
-            $desc = $desc->body if ref($desc);
-            $desc ||= 'Thanks!';    # in case ->body resets it
-            $desc = undef() if defined $desc && $desc !~ m/Event Description: /ms;
-            if ( defined $desc ) {
-                $desc =~ s/.*Event Description: //ms;
-                $desc = HTML::Entities::decode_entities($desc);
-            }
-
-            push @{ $feed{$date} }, {
-                'title' => HTML::Entities::decode_entities( $entry->title() ),
-                'desc'  => $desc,
-                'url'   => $entry->link()->href(),
-                'date'  => $date,
-                'year'  => $year,
-                'time'  => $time,
-                ( defined $event_dt_obj ? ( 'event_dt_obj' => $event_dt_obj ) : () ),
-
-                # TODO: 'where'             => $where,
-                'guests'            => \@who,
-                'gcal_title'        => $feed->title(),
-                'gcal_uri'          => $uri,
+                'gcal_title'        => $gcal_title,
+                'gcal_uri'          => $url,
                 'gcal_entry_obj'    => $entry,
-                'gcal_updated'      => $feed->updated(),
-                'gcal_updated_date' => $self->date_format_obj->parse_datetime( $feed->updated() )->format_cldr("E MMM d"),
+                'gcal_updated'      => $gcal_updated,
+                'gcal_updated_date' => $gcal_updated_date,
             };
         }
 
-        $cache->{$gcal} = \%feed;
+        $cache->{$gcal} = \%cal;
     }
 
     return $cache->{$gcal};
@@ -324,54 +319,6 @@ sub send_gmail {
     return 1;
 }
 
-sub __get_date_year_time_from_dt {
-    my ($_dt) = @_;
-
-    # eek, patches/module please! perhaps a URI-param to get the same format regardless of locale/user setting?
-    my ( $date, $year, $time ) = $_dt =~ m/^\s*when\:\s*([^,]+\s*\,|\w+\s+\w+\s+\w+)\s*(\d+)\s*(\S+)?/i;
-    $date =~ s/\s*\,$//;
-
-    my ( $x, $y, $z ) = split( /\s+/, $date );
-    if ( $x =~ m/^\d+$/ ) {
-        if ( exists $mmm_name_to_n{ lc $y } ) {
-            $date = "$z $y $x";
-        }
-        elsif ( exists $mmm_name_to_n{ lc $z } ) {
-            $date = "$y $z $x";
-        }
-        else {
-            $date = undef;    # can’t figure month
-        }
-    }
-    elsif ( $y =~ m/^\d+$/ ) {
-        if ( exists $mmm_name_to_n{ lc $x } ) {
-            $date = "$z $x $y";
-        }
-        elsif ( exists $mmm_name_to_n{ lc $z } ) {
-            $date = "$x $z $y";
-        }
-        else {
-            $date = undef;    # can’t figure month
-        }
-    }
-    elsif ( $z =~ m/^\d+$/ ) {
-        if ( exists $mmm_name_to_n{ lc $x } ) {
-            $date = "$y $x $z";
-        }
-        elsif ( exists $mmm_name_to_n{ lc $y } ) {
-            $date = "$x $y $z";
-        }
-        else {
-            $date = undef;    # can’t figure month
-        }
-    }
-    else {
-        $date = undef;        # can’t figure day
-    }
-
-    return ( $date, $year, $time );
-}
-
 1;
 
 __END__
@@ -384,7 +331,7 @@ Mail::GcalReminder - Send reminders to Google calendar event guests
 
 =head1 VERSION
 
-This document describes Mail::GcalReminder version 0.3
+This document describes Mail::GcalReminder version 0.4
 
 =head1 SYNOPSIS
 
@@ -478,9 +425,21 @@ Time zone to use in default 'base_date' and the event_dt_obj object.
 
 Defaults to UTC. Value given must be sutiable for DateTime::TimeZone->new’s name attribute.
 
+=item * http
+
+HTTP Client object. Defaults to lazy loaded L<HTTP::Tiny> object.
+
+If an object is given it must have a mirror() method.
+
+That mirror() method should that a URL and a file path and returns the same sort of response object as L<HTTP::Tiny>.
+
+=item * workdir
+
+Directory to download ical’s too.
+
 =item * include_event_dt_obj
 
-Boolean, default 1, calculate and include the key event_dt_obj in the “hashref of event details”
+Boolean, default 0, include the key event_dt_obj in the “hashref of event details”
 
 =item * essg_hax_ver
 
@@ -633,9 +592,13 @@ Time of the event.
 
 An array ref of event guests.
 
+=item 'location'
+
+The location of the event, if any.
+
 =item event_dt_obj
 
-This will exist if $gcr->include_event_dt_obj is true. It is a L<DateTime> object of the event’s date (time one minute past midnight). The time zone is $gcr->time_zone
+This will exist if $gcr->include_event_dt_obj is true. It is a L<DateTime> object of the event’s date/time. The time zone is $gcr->time_zone
 
 =item 'gcal_title'
 
@@ -647,7 +610,7 @@ URL of the calendar.
 
 =item 'gcal_entry_obj'
 
-The events’s L<XML::Atom::Entry> object.
+The events’s L<Data::ICal::Entry> object.
 
 =item 'gcal_updated'
 
@@ -685,7 +648,7 @@ All messages are sent to $gcr->warnings().
 
 =item C<< No guests for “%s”. >>
 
-=item C<< Could not parse date from summary: %s\nOrig: %s >>
+=item C<< Could not determine date due to missing “dtstart”. >>
 
 =item C<< Email::Send::SMTP::Gmail is newer than $gcr->essg_hax_ver, skipping header-via-charset hack >>
 
@@ -699,25 +662,25 @@ L<Moo>
 
 L<Email::Send::SMTP::Gmail>
 
-L<URI>
-
-L<XML::Atom::Feed>
-
-L<HTML::Entities>
-
 L<DateTime>
+
+L<DateTime::TimeZone>
 
 L<Carp>
 
-L<DateTime::Format::Atom>
+L<DateTime::Format::ISO8601>
+
+L<HTTP::Tiny>
+
+L<XML::Simple>
+
+L<Temp::File>
 
 For Testing: L<Test::More>, L<Net::Detect>, L<Test::Warn>
 
 =head1 TODO
 
 Support and/or outline how a config file might be used to various advantages.
-
-Use parser and/or params to handle non-en and better handle various date formats.
 
 =head1 INCOMPATIBILITIES
 

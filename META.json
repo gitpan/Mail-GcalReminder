@@ -34,21 +34,21 @@
          "requires" : {
             "Carp" : "0",
             "DateTime" : "0",
-            "DateTime::Format::Atom" : "0",
+            "DateTime::Format::ISO8601" : "0",
             "DateTime::TimeZone" : "0",
             "Email::Send::SMTP::Gmail" : "0",
-            "HTML::Entities" : "0",
+            "HTML::Tiny" : "0",
             "Moo" : "0",
             "Net::Detect" : "0",
             "Role::Multiton::New" : "0",
+            "Temp::File" : "0",
             "Test::Deep" : "0",
             "Test::More" : "0",
             "Test::Warn" : "0",
-            "URI" : "0",
-            "XML::Atom::Feed" : "0"
+            "XML::Simple" : "0"
          }
       }
    },
    "release_status" : "stable",
-   "version" : "0.3"
+   "version" : "0.4"
 }

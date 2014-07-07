@@ -1,4 +1,4 @@
-use Test::More tests => 72;
+use Test::More tests => 70;
 
 use Mail::GcalReminder;
 use Test::Exception;
@@ -101,7 +101,7 @@ is( $warn,              "string",  "string calls coderef" );
 is( $gcr->warning_code, $new_code, "string does not reset coderef" );
 
 ok( defined &Mail::GcalReminder::date_format_obj, 'has date_format_obj()' );
-is( ref( $gcr->date_format_obj ), 'DateTime::Format::Atom', 'date_format_obj get default' );
+is( ref( $gcr->date_format_obj ), 'DateTime::Format::ISO8601', 'date_format_obj get default' );
 throws_ok { $gcr->date_format_obj('boo') } qr//, 'date_format_obj set';
 
 ok( defined &Mail::GcalReminder::signature, 'has signature()' );
@@ -135,16 +135,3 @@ is( $gcr->_build_signature(), $sig, '_build_signature RV' );
 ok( defined &Mail::GcalReminder::get_gcal,       'sub get_gcal()' );
 ok( defined &Mail::GcalReminder::send_reminders, 'sub send_reminders()' );
 ok( defined &Mail::GcalReminder::send_gmail,     'sub send_gmail()' );
-
-is_deeply(
-    [ Mail::GcalReminder::__get_date_year_time_from_dt('When: Fri Mar 14, 2014 12pm to 12:45pm CST') ],
-    [ 'Fri Mar 14', 2014, '12pm' ],
-    'can parse when date format 1'
-);
-
-is_deeply(
-    [ Mail::GcalReminder::__get_date_year_time_from_dt(' When: Tue 18 Feb 1986 19:00 to 20:00 CST') ],
-    [ 'Tue Feb 18', 1986, '19:00' ],
-    'can parse when date format 2'
-);
-
