@@ -6,10 +6,10 @@ use Moo;
 with 'Role::Multiton::New';
 
 use Email::Send::SMTP::Gmail ();
-use XML::Simple              ();
+use iCal::Parser             ();
 use DateTime                 ();
 
-our $VERSION = '0.4';
+our $VERSION = '0.5';
 
 has gmail_user => ( is => 'rw', required => 1 );
 
@@ -69,7 +69,7 @@ has base_date => (
     'isa' => sub { die "only DateTime objects are supported" unless ref( $_[0] ) eq 'DateTime' },
 );
 
-has essg_hax_ver => ( is => 'rw', 'default' => sub { 0.82 } );
+has essg_hax_ver => ( is => 'rw', 'default' => sub { 0.88 } );
 
 has warning_code => (
     is        => 'rw',
@@ -92,6 +92,7 @@ has date_format_obj => (
     is        => 'ro',
     'lazy'    => 1,
     'default' => sub {
+        warn "date_format_obj() is deprecated and will be removed soon, please update your code";
         require DateTime::Format::ISO8601;
         return DateTime::Format::ISO8601->new();
     },
@@ -122,9 +123,7 @@ sub get_gcal {
         my $single_event = 1;                                                                                                                                                                    # ? DO THIS ALL THE TIME?
         my $addt = $single_event ? '&singleevents=true' : '';
 
-        # https://developers.google.com/google-apps/calendar/v2/reference#Calendar_feeds
-        my $url = "http://www.google.com/calendar/feeds/$gcal/full?$query_string$addt";
-
+        my $url  = "http://www.google.com/calendar/ical/$gcal/basic.ics?$query_string$addt";
         my $path = $gcal;
         $path =~ s{/}{_slash_}g;
         my $file = $self->workdir . "/$path.xml";                                                                                                                                                # TODO: make portable via File::Spec
@@ -133,59 +132,105 @@ sub get_gcal {
             die "Could not fetch “$url”: $res->{reason}\n";
         }
 
-        my $xml = eval { XML::Simple::XMLin( $file, ForceArray => [ 'gd:who', 'link' ] ) };
+        my $ics = eval {
+            iCal::Parser->new(
+                start    => $self->base_date->format_cldr('yyyyMMdd'),
+                end      => $q_end->format_cldr('yyyyMMdd'),
+                no_todos => 1,
+
+                # TODO 2: best thing to do here ?tz => $self->time_zone,
+            )->parse($file);
+        };
+
         if ($@) {
-            die "Could not parse XML ($file): $@";
+            die "Could not parse ICS ($file): $@";
         }
 
         my %cal;
 
-        my $gcal_title        = $xml->{title}{content};
-        my $gcal_updated      = $xml->{updated};
-        my $gcal_tz           = $xml->{'gCal:timezone'}{'value'};
-        my $gcal_updated_date = defined $gcal_updated ? $self->date_format_obj->parse_datetime($gcal_updated)->format_cldr("E MMM d") : undef;
+        my $gcal_title        = $ics->{cals}[0]{'X-WR-CALNAME'};
+        my $gcal_updated      = undef;                              # set if possible via BUILD_EVENT_LIST
+        my $gcal_updated_date = undef;
+        my $gcal_tz           = $ics->{cals}[0]{'X-WR-TIMEZONE'};
+        my $gcal_uri          = $gcal;
+        $gcal_uri =~ s{/p.*$}{};
+        my @entries;
 
-        for my $entry_key ( sort { $xml->{entry}{$a}{'gd:when'}{'startTime'} cmp $xml->{entry}{$b}{'gd:when'}{'startTime'} } keys %{ $xml->{entry} } ) {
-            my $entry = $xml->{entry}{$entry_key};
+      BUILD_EVENT_LIST:
+        for my $year ( sort { $a <=> $b } keys %{ $ics->{events} } ) {
+            for my $month ( sort { $a <=> $b } keys %{ $ics->{events}{$year} } ) {
+                for my $day ( sort { $a cmp $b } keys %{ $ics->{events}{$year}{$month} } ) {
+                    for my $cuid ( sort { $ics->{events}{$year}{$month}{$day}{$a}{DTSTART}->iso8601() cmp $ics->{events}{$year}{$month}{$day}{$b}{DTSTART}->iso8601() } keys %{ $ics->{events}{$year}{$month}{$day} } ) {
 
-            my $event_dt_obj = $self->date_format_obj->parse_datetime( $entry->{'gd:when'}{'startTime'} );
+                        my $entry = $ics->{events}{$year}{$month}{$day}{$cuid};
 
-            # $event_dt_obj->set_time_zone($gcal_tz);
+                        if ( !defined $gcal_updated || $gcal_updated->epoch() < $entry->{'LAST-MODIFIED'}->epoch() ) {
+                            $gcal_updated = $entry->{'LAST-MODIFIED'};    # because ical cals data dies not contain last updated we have to get it from the events, needs set before BUILD_EVENTS_HASH
+                        }
 
-            # TODO: factor author in attendees ?
-            # 'author' => {
-            #   'email' => 'steeplechase.public.talks@gmail.com',
-            #   'name' => 'Steeplechase Public Talks Coord'
-            # },
+                        # TODO 2 ?: $event_dt_obj->set_time_zone($gcal_tz);
 
-            my $attendees_ar = $entry->{'gd:who'};
+                        push @entries, $entry;                            # processed via BUILD_EVENTS_HASH
+                    }
+                }
+            }
+        }
+
+        if ( defined $gcal_updated ) {
+            $gcal_updated_date = $gcal_updated->format_cldr("E MMM d");
+            $gcal_updated      = $gcal_updated->iso8601();
+        }
+
+      BUILD_EVENTS_HASH:
+        for my $entry (@entries) {
+
+            # use Devel::Kit::TAP;d($entry->{DTSTART}."");
+            # 'SUMMARY',
+            # 'LOCATION',
+            # 'hours',
+            # 'LAST-MODIFIED',
+            # 'UID',
+            # 'idref',
+            # 'STATUS',
+            # 'TRANSP',
+            # 'DTSTAMP',
+            # 'DTEND',
+            # 'CREATED',
+            # 'ORGANIZER',
+            # 'DESCRIPTION',
+            # 'DTSTART',
+            # 'ATTENDEE'
+
+            my $event_dt_obj = $entry->{DTSTART};
+
             my @who;
-            if ( defined $attendees_ar && ref($attendees_ar) eq 'ARRAY' ) {
+            if ( defined $entry->{ATTENDEE} && ref( $entry->{ATTENDEE} ) eq 'ARRAY' ) {
                 @who = map {
-                    my $str = $_->{email};
+                    my $str = $_->{value};
+                    $str =~ s/^mailto\://;
                     $str && $str !~ m/\@group.calendar.google.com$/ ? $str : ()
-                } @{$attendees_ar};
+                } @{ $entry->{ATTENDEE} };
             }
 
             my $date = $event_dt_obj->format_cldr("E MMM d");
             push @{ $cal{$date} }, {
-                'title' => $entry->{title}{content},
-                'desc'  => $entry->{content}{content},
-
-                'url' => $entry->{link}[0]{type} eq 'text/html' ? $entry->{link}[0]{href} : $entry->{link}[1]{href},
-                'date' => $date,
-                'year' => $event_dt_obj->format_cldr("YYYY"),
-                'time' => $event_dt_obj->format_cldr("h:mm a"),
+                'title' => $entry->{SUMMARY},
+                'desc'  => $entry->{DESCRIPTION},
+                'url'   => "https://www.google.com/calendar/embed?src=$gcal_uri",    # TODO 1: URL to event, what is it given the data in the iCal?
+                'date'  => $date,
+                'year'  => $event_dt_obj->format_cldr("YYYY"),
+                'time'  => $event_dt_obj->format_cldr("h:mm a"),
                 ( $self->include_event_dt_obj ? ( 'event_dt_obj' => $event_dt_obj ) : () ),
-                'location' => $entry->{'gd:where'}{valueString},
+                'location' => $entry->{'LOCATION'},
                 'guests'   => \@who,
 
                 'gcal_title'        => $gcal_title,
-                'gcal_uri'          => $url,
+                'gcal_uri'          => $url,                                         # "https://www.google.com/calendar/embed?src=$gcal_uri",
                 'gcal_entry_obj'    => $entry,
                 'gcal_updated'      => $gcal_updated,
                 'gcal_updated_date' => $gcal_updated_date,
             };
+
         }
 
         $cache->{$gcal} = \%cal;
@@ -331,7 +376,7 @@ Mail::GcalReminder - Send reminders to Google calendar event guests
 
 =head1 VERSION
 
-This document describes Mail::GcalReminder version 0.4
+This document describes Mail::GcalReminder version 0.5
 
 =head1 SYNOPSIS
 
@@ -451,7 +496,7 @@ This is a code ref that is executed by warning(). The default it is a carp() wit
 
 =item * date_format_obj
 
-Can not be set. Returns the object that can parse ataom format date strings.
+Deprecated as of v0.5, due to not needing to parse ATOM feed date strings.
 
 =item * signature
 

@@ -1,4 +1,4 @@
-use Test::More tests => 70;
+use Test::More tests => 71;
 
 use Mail::GcalReminder;
 use Test::Exception;
@@ -75,7 +75,7 @@ is( $gcr->base_date($base), $base, 'base_date set valid' );
 throws_ok { $gcr->base_date('whatever') } qr/only DateTime objects are supported/, 'base_date set invalid';
 
 ok( defined &Mail::GcalReminder::no_guests_is_ok, 'has no_guests_is_ok()' );
-is( $gcr->essg_hax_ver,       0.82, 'essg_hax_ver get default' );
+is( $gcr->essg_hax_ver,       0.88, 'essg_hax_ver get default' );
 is( $gcr->essg_hax_ver(0.42), 0.42, 'essg_hax_ver set' );
 
 ok( defined &Mail::GcalReminder::warning,      'sub  warning()' );
@@ -101,7 +101,10 @@ is( $warn,              "string",  "string calls coderef" );
 is( $gcr->warning_code, $new_code, "string does not reset coderef" );
 
 ok( defined &Mail::GcalReminder::date_format_obj, 'has date_format_obj()' );
-is( ref( $gcr->date_format_obj ), 'DateTime::Format::ISO8601', 'date_format_obj get default' );
+warning_like {
+    is( ref( $gcr->date_format_obj ), 'DateTime::Format::ISO8601', 'date_format_obj get default' );
+}
+qr/date_format_obj\(\) is deprecated/, 'date_format_obj() warns about deprecation';
 throws_ok { $gcr->date_format_obj('boo') } qr//, 'date_format_obj set';
 
 ok( defined &Mail::GcalReminder::signature, 'has signature()' );

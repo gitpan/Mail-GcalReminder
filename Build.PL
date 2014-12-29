@@ -17,8 +17,8 @@ my $builder = Module::Build->new(
         'Role::Multiton::New' => 0,
 
         'Email::Send::SMTP::Gmail' => 0,
-        'XML::Simple'              => 0,
-        'Temp::File'               => 0,
+        'iCal::Parser'             => 0,
+        'File::Temp'               => 0,
         'HTML::Tiny'               => 0,
 
         'DateTime'                  => 0,

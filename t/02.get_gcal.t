@@ -18,8 +18,8 @@ my $gcr = Mail::GcalReminder->new( gmail_user => 'me@example.com', gmail_pass =>
 #### get_gcal ##
 
 # Has one-time and recurring events, has me@example.com and "You Self" <you@example.com> as guests
-#   public XML : https://www.google.com/calendar/feeds/6qrhpfk1utcs97g9u2o27g5ojo%40group.calendar.google.com/public/basic
-#   private XML: https://www.google.com/calendar/feeds/6qrhpfk1utcs97g9u2o27g5ojo%40group.calendar.google.com/private-a6689d558b4dbba8942e510985b604d3/basic
+#   public XML : https://www.google.com/calendar/ical/6qrhpfk1utcs97g9u2o27g5ojo%40group.calendar.google.com/public/basic
+#   private XML: https://www.google.com/calendar/ical/6qrhpfk1utcs97g9u2o27g5ojo%40group.calendar.google.com/private-a6689d558b4dbba8942e510985b604d3/basic
 my $pub_xml_gcal  = '6qrhpfk1utcs97g9u2o27g5ojo%40group.calendar.google.com/public';
 my $priv_xml_gcal = '6qrhpfk1utcs97g9u2o27g5ojo%40group.calendar.google.com/private-a6689d558b4dbba8942e510985b604d3';
 
@@ -55,7 +55,7 @@ sub _get_target_datastruct {
 
     my $public = $gcal =~ m{group\.calendar\.google\.com/private-} ? 0 : 1;
 
-    my $gcal_uri = "http://www.google.com/calendar/feeds/$gcal/basic?orderby=starttime&sortorder=a&start-min=1986-01-21&start-max=1986-03-04&max-results=100&singleevents=true";
+    my $gcal_uri = "http://www.google.com/calendar/ical/$gcal/basic?orderby=starttime&sortorder=a&start-min=1986-01-21&start-max=1986-03-04&max-results=100&singleevents=true";
 
     return {
         'Tue Feb 11' => [
@@ -63,9 +63,9 @@ sub _get_target_datastruct {
                 'date'              => 'Tue Feb 11',
                 'gcal_entry_obj'    => code( sub { ref( $_[0] ) eq 'HASH' } ),
                 'gcal_title'        => 'Test Calendar',
-                'gcal_updated'      => re(qr/^\d+\-\d+\-\d+T\d+:\d+:\d+\.000Z$/),
+                'gcal_updated'      => re(qr/^\d+\-\d+\-\d+T\d+:\d+:\d+$/),
                 'gcal_updated_date' => re(qr/^\w+ \w+ \d+$/),
-                'gcal_uri'          => re(qr{http://www\.google\.com/calendar/feeds/6qrhpfk1utcs97g9u2o27g5ojo%40group\.calendar\.google\.com}),
+                'gcal_uri'          => re(qr{http://www\.google\.com/calendar/ical/6qrhpfk1utcs97g9u2o27g5ojo%40group\.calendar\.google\.com}),
                 'guests'            => $public ? []
                 : [
                     'you@example.com',
@@ -74,17 +74,17 @@ sub _get_target_datastruct {
                 'location' => '',
                 'time'     => '11:00 AM',
                 'title'    => 'Recurring Limited - Start',
-                'desc'     => undef(),
-                'url'      => 'http://www.google.com/calendar/event?eid=MnFmNXI2ODdkajJ1MG43OWJrdmZlam9rNGdfMTk4NjAyMTFUMTcwMDAwWiA2cXJocGZrMXV0Y3M5N2c5dTJvMjdnNW9qb0Bn',
+                'desc'     => '',
+                'url'      => re(qr/www\.google\.com/),
                 'year'     => '1986'
             },
             {
                 'date'              => 'Tue Feb 11',
                 'gcal_entry_obj'    => code( sub { ref( $_[0] ) eq 'HASH' } ),
                 'gcal_title'        => 'Test Calendar',
-                'gcal_updated'      => re(qr/^\d+\-\d+\-\d+T\d+:\d+:\d+\.000Z$/),
+                'gcal_updated'      => re(qr/^\d+\-\d+\-\d+T\d+:\d+:\d+$/),
                 'gcal_updated_date' => re(qr/^\w+ \w+ \d+$/),
-                'gcal_uri'          => re(qr{http://www\.google\.com/calendar/feeds/6qrhpfk1utcs97g9u2o27g5ojo%40group\.calendar\.google\.com}),
+                'gcal_uri'          => re(qr{http://www\.google\.com/calendar/ical/6qrhpfk1utcs97g9u2o27g5ojo%40group\.calendar\.google\.com}),
                 'guests'            => $public ? []
                 : [
                     'you@example.com',
@@ -93,8 +93,8 @@ sub _get_target_datastruct {
                 'location' => '',
                 'time'     => '7:00 PM',
                 'title'    => 'Recurring Forever Test',
-                'desc'     => undef(),
-                'url'      => 'http://www.google.com/calendar/event?eid=NWlxanF2dThiajNoMG9xbDhlaTQ1MjZqNG9fMTk4NjAyMTJUMDEwMDAwWiA2cXJocGZrMXV0Y3M5N2c5dTJvMjdnNW9qb0Bn',
+                'desc'     => '',
+                'url'      => re(qr/www\.google\.com/),
                 'year'     => '1986'
             }
         ],
@@ -103,9 +103,9 @@ sub _get_target_datastruct {
                 'date'              => 'Tue Feb 18',
                 'gcal_entry_obj'    => code( sub { ref( $_[0] ) eq 'HASH' } ),
                 'gcal_title'        => 'Test Calendar',
-                'gcal_updated'      => re(qr/^\d+\-\d+\-\d+T\d+:\d+:\d+\.000Z$/),
+                'gcal_updated'      => re(qr/^\d+\-\d+\-\d+T\d+:\d+:\d+$/),
                 'gcal_updated_date' => re(qr/^\w+ \w+ \d+$/),
-                'gcal_uri'          => re(qr{http://www\.google\.com/calendar/feeds/6qrhpfk1utcs97g9u2o27g5ojo%40group\.calendar\.google\.com}),
+                'gcal_uri'          => re(qr{http://www\.google\.com/calendar/ical/6qrhpfk1utcs97g9u2o27g5ojo%40group\.calendar\.google\.com}),
                 'guests'            => $public ? []
                 : [
                     'you@example.com',
@@ -114,8 +114,8 @@ sub _get_target_datastruct {
                 'location' => '',
                 'time'     => '7:00 PM',
                 'title'    => 'Recurring Forever Test',
-                'desc'     => undef(),
-                'url'      => 'http://www.google.com/calendar/event?eid=NWlxanF2dThiajNoMG9xbDhlaTQ1MjZqNG9fMTk4NjAyMTlUMDEwMDAwWiA2cXJocGZrMXV0Y3M5N2c5dTJvMjdnNW9qb0Bn',
+                'desc'     => '',
+                'url'      => re(qr/www\.google\.com/),
                 'year'     => '1986'
             }
         ],
@@ -124,9 +124,9 @@ sub _get_target_datastruct {
                 'date'              => 'Tue Feb 25',
                 'gcal_entry_obj'    => code( sub { ref( $_[0] ) eq 'HASH' } ),
                 'gcal_title'        => 'Test Calendar',
-                'gcal_updated'      => re(qr/^\d+\-\d+\-\d+T\d+:\d+:\d+\.000Z$/),
+                'gcal_updated'      => re(qr/^\d+\-\d+\-\d+T\d+:\d+:\d+$/),
                 'gcal_updated_date' => re(qr/^\w+ \w+ \d+$/),
-                'gcal_uri'          => re(qr{http://www\.google\.com/calendar/feeds/6qrhpfk1utcs97g9u2o27g5ojo%40group\.calendar\.google\.com}),
+                'gcal_uri'          => re(qr{http://www\.google\.com/calendar/ical/6qrhpfk1utcs97g9u2o27g5ojo%40group\.calendar\.google\.com}),
                 'guests'            => $public ? []
                 : [
                     'you@example.com',
@@ -135,8 +135,8 @@ sub _get_target_datastruct {
                 'location' => '',
                 'time'     => '7:00 PM',
                 'title'    => 'Recurring Forever Test',
-                'desc'     => undef(),
-                'url'      => 'http://www.google.com/calendar/event?eid=NWlxanF2dThiajNoMG9xbDhlaTQ1MjZqNG9fMTk4NjAyMjZUMDEwMDAwWiA2cXJocGZrMXV0Y3M5N2c5dTJvMjdnNW9qb0Bn',
+                'desc'     => '',
+                'url'      => re(qr/www\.google\.com/),
                 'year'     => '1986'
             }
         ],
@@ -145,9 +145,9 @@ sub _get_target_datastruct {
                 'date'              => 'Tue Feb 4',
                 'gcal_entry_obj'    => code( sub { ref( $_[0] ) eq 'HASH' } ),
                 'gcal_title'        => 'Test Calendar',
-                'gcal_updated'      => re(qr/^\d+\-\d+\-\d+T\d+:\d+:\d+\.000Z$/),
+                'gcal_updated'      => re(qr/^\d+\-\d+\-\d+T\d+:\d+:\d+$/),
                 'gcal_updated_date' => re(qr/^\w+ \w+ \d+$/),
-                'gcal_uri'          => re(qr{http://www\.google\.com/calendar/feeds/6qrhpfk1utcs97g9u2o27g5ojo%40group\.calendar\.google\.com}),
+                'gcal_uri'          => re(qr{http://www\.google\.com/calendar/ical/6qrhpfk1utcs97g9u2o27g5ojo%40group\.calendar\.google\.com}),
                 'guests'            => $public ? []
                 : [
                     'you@example.com',
@@ -157,16 +157,16 @@ sub _get_target_datastruct {
                 'time'     => '10:00 AM',
                 'title'    => 'Recurring Limited - Middle',
                 'desc'     => 'Recurring Limited - Middle Desc',
-                'url'      => 'http://www.google.com/calendar/event?eid=MXYxYTlyNGFlaGw4YjVkNG1iMDBrcjY2djBfMTk4NjAyMDRUMTYwMDAwWiA2cXJocGZrMXV0Y3M5N2c5dTJvMjdnNW9qb0Bn',
+                'url'      => re(qr/www\.google\.com/),
                 'year'     => '1986'
             },
             {
                 'date'              => 'Tue Feb 4',
                 'gcal_entry_obj'    => code( sub { ref( $_[0] ) eq 'HASH' } ),
                 'gcal_title'        => 'Test Calendar',
-                'gcal_updated'      => re(qr/^\d+\-\d+\-\d+T\d+:\d+:\d+\.000Z$/),
+                'gcal_updated'      => re(qr/^\d+\-\d+\-\d+T\d+:\d+:\d+$/),
                 'gcal_updated_date' => re(qr/^\w+ \w+ \d+$/),
-                'gcal_uri'          => re(qr{http://www\.google\.com/calendar/feeds/6qrhpfk1utcs97g9u2o27g5ojo%40group\.calendar\.google\.com}),
+                'gcal_uri'          => re(qr{http://www\.google\.com/calendar/ical/6qrhpfk1utcs97g9u2o27g5ojo%40group\.calendar\.google\.com}),
                 'guests'            => $public ? []
                 : [
                     'you@example.com',
@@ -175,17 +175,17 @@ sub _get_target_datastruct {
                 'location' => '',
                 'time'     => '11:00 AM',
                 'title'    => 'Recurring Limited - Start',
-                'desc'     => undef(),
-                'url'      => 'http://www.google.com/calendar/event?eid=MnFmNXI2ODdkajJ1MG43OWJrdmZlam9rNGdfMTk4NjAyMDRUMTcwMDAwWiA2cXJocGZrMXV0Y3M5N2c5dTJvMjdnNW9qb0Bn',
+                'desc'     => '',
+                'url'      => re(qr/www\.google\.com/),
                 'year'     => '1986'
             },
             {
                 'date'              => 'Tue Feb 4',
                 'gcal_entry_obj'    => code( sub { ref( $_[0] ) eq 'HASH' } ),
                 'gcal_title'        => 'Test Calendar',
-                'gcal_updated'      => re(qr/^\d+\-\d+\-\d+T\d+:\d+:\d+\.000Z$/),
+                'gcal_updated'      => re(qr/^\d+\-\d+\-\d+T\d+:\d+:\d+$/),
                 'gcal_updated_date' => re(qr/^\w+ \w+ \d+$/),
-                'gcal_uri'          => re(qr{http://www\.google\.com/calendar/feeds/6qrhpfk1utcs97g9u2o27g5ojo%40group\.calendar\.google\.com}),
+                'gcal_uri'          => re(qr{http://www\.google\.com/calendar/ical/6qrhpfk1utcs97g9u2o27g5ojo%40group\.calendar\.google\.com}),
                 'guests'            => $public ? []
                 : [
                     'you@example.com',
@@ -194,8 +194,8 @@ sub _get_target_datastruct {
                 'location' => '',
                 'time'     => '7:00 PM',
                 'title'    => 'Recurring Forever Test',
-                'desc'     => undef(),
-                'url'      => 'http://www.google.com/calendar/event?eid=NWlxanF2dThiajNoMG9xbDhlaTQ1MjZqNG9fMTk4NjAyMDVUMDEwMDAwWiA2cXJocGZrMXV0Y3M5N2c5dTJvMjdnNW9qb0Bn',
+                'desc'     => '',
+                'url'      => re(qr/www\.google\.com/),
                 'year'     => '1986'
             }
         ],
@@ -204,9 +204,9 @@ sub _get_target_datastruct {
                 'date'              => 'Tue Jan 21',
                 'gcal_entry_obj'    => code( sub { ref( $_[0] ) eq 'HASH' } ),
                 'gcal_title'        => 'Test Calendar',
-                'gcal_updated'      => re(qr/^\d+\-\d+\-\d+T\d+:\d+:\d+\.000Z$/),
+                'gcal_updated'      => re(qr/^\d+\-\d+\-\d+T\d+:\d+:\d+$/),
                 'gcal_updated_date' => re(qr/^\w+ \w+ \d+$/),
-                'gcal_uri'          => re(qr{http://www\.google\.com/calendar/feeds/6qrhpfk1utcs97g9u2o27g5ojo%40group\.calendar\.google\.com}),
+                'gcal_uri'          => re(qr{http://www\.google\.com/calendar/ical/6qrhpfk1utcs97g9u2o27g5ojo%40group\.calendar\.google\.com}),
                 'guests'            => $public ? []
                 : [
                     'you@example.com',
@@ -216,16 +216,16 @@ sub _get_target_datastruct {
                 'time'     => '9:00 AM',
                 'title'    => 'Recurring Limited - End',
                 'desc'     => 'Recurring Limited - End Desc',
-                'url'      => 'http://www.google.com/calendar/event?eid=cmFrMjhkbGZza25xamczNzEzYjkwMWVkamdfMTk4NjAxMjFUMTUwMDAwWiA2cXJocGZrMXV0Y3M5N2c5dTJvMjdnNW9qb0Bn',
+                'url'      => re(qr/www\.google\.com/),
                 'year'     => '1986'
             },
             {
                 'date'              => 'Tue Jan 21',
                 'gcal_entry_obj'    => code( sub { ref( $_[0] ) eq 'HASH' } ),
                 'gcal_title'        => 'Test Calendar',
-                'gcal_updated'      => re(qr/^\d+\-\d+\-\d+T\d+:\d+:\d+\.000Z$/),
+                'gcal_updated'      => re(qr/^\d+\-\d+\-\d+T\d+:\d+:\d+$/),
                 'gcal_updated_date' => re(qr/^\w+ \w+ \d+$/),
-                'gcal_uri'          => re(qr{http://www\.google\.com/calendar/feeds/6qrhpfk1utcs97g9u2o27g5ojo%40group\.calendar\.google\.com}),
+                'gcal_uri'          => re(qr{http://www\.google\.com/calendar/ical/6qrhpfk1utcs97g9u2o27g5ojo%40group\.calendar\.google\.com}),
                 'guests'            => $public ? []
                 : [
                     'you@example.com',
@@ -235,16 +235,16 @@ sub _get_target_datastruct {
                 'time'     => '10:00 AM',
                 'title'    => 'Recurring Limited - Middle',
                 'desc'     => 'Recurring Limited - Middle Desc',
-                'url'      => 'http://www.google.com/calendar/event?eid=MXYxYTlyNGFlaGw4YjVkNG1iMDBrcjY2djBfMTk4NjAxMjFUMTYwMDAwWiA2cXJocGZrMXV0Y3M5N2c5dTJvMjdnNW9qb0Bn',
+                'url'      => re(qr/www\.google\.com/),
                 'year'     => '1986'
             },
             {
                 'date'              => 'Tue Jan 21',
                 'gcal_entry_obj'    => code( sub { ref( $_[0] ) eq 'HASH' } ),
                 'gcal_title'        => 'Test Calendar',
-                'gcal_updated'      => re(qr/^\d+\-\d+\-\d+T\d+:\d+:\d+\.000Z$/),
+                'gcal_updated'      => re(qr/^\d+\-\d+\-\d+T\d+:\d+:\d+$/),
                 'gcal_updated_date' => re(qr/^\w+ \w+ \d+$/),
-                'gcal_uri'          => re(qr{http://www\.google\.com/calendar/feeds/6qrhpfk1utcs97g9u2o27g5ojo%40group\.calendar\.google\.com}),
+                'gcal_uri'          => re(qr{http://www\.google\.com/calendar/ical/6qrhpfk1utcs97g9u2o27g5ojo%40group\.calendar\.google\.com}),
                 'guests'            => $public ? []
                 : [
                     'you@example.com',
@@ -253,8 +253,8 @@ sub _get_target_datastruct {
                 'location' => '',
                 'time'     => '7:00 PM',
                 'title'    => 'Recurring Forever Test',
-                'desc'     => undef(),
-                'url'      => 'http://www.google.com/calendar/event?eid=NWlxanF2dThiajNoMG9xbDhlaTQ1MjZqNG9fMTk4NjAxMjJUMDEwMDAwWiA2cXJocGZrMXV0Y3M5N2c5dTJvMjdnNW9qb0Bn',
+                'desc'     => '',
+                'url'      => re(qr/www\.google\.com/),
                 'year'     => '1986'
             }
         ],
@@ -263,9 +263,9 @@ sub _get_target_datastruct {
                 'date'              => 'Tue Jan 28',
                 'gcal_entry_obj'    => code( sub { ref( $_[0] ) eq 'HASH' } ),
                 'gcal_title'        => 'Test Calendar',
-                'gcal_updated'      => re(qr/^\d+\-\d+\-\d+T\d+:\d+:\d+\.000Z$/),
+                'gcal_updated'      => re(qr/^\d+\-\d+\-\d+T\d+:\d+:\d+$/),
                 'gcal_updated_date' => re(qr/^\w+ \w+ \d+$/),
-                'gcal_uri'          => re(qr{http://www\.google\.com/calendar/feeds/6qrhpfk1utcs97g9u2o27g5ojo%40group\.calendar\.google\.com}),
+                'gcal_uri'          => re(qr{http://www\.google\.com/calendar/ical/6qrhpfk1utcs97g9u2o27g5ojo%40group\.calendar\.google\.com}),
                 'guests'            => $public ? []
                 : [
                     'you@example.com',
@@ -275,16 +275,16 @@ sub _get_target_datastruct {
                 'time'     => '9:00 AM',
                 'title'    => 'Recurring Limited - End',
                 'desc'     => 'Recurring Limited - End Desc',
-                'url'      => 'http://www.google.com/calendar/event?eid=cmFrMjhkbGZza25xamczNzEzYjkwMWVkamdfMTk4NjAxMjhUMTUwMDAwWiA2cXJocGZrMXV0Y3M5N2c5dTJvMjdnNW9qb0Bn',
+                'url'      => re(qr/www\.google\.com/),
                 'year'     => '1986'
             },
             {
                 'date'              => 'Tue Jan 28',
                 'gcal_entry_obj'    => code( sub { ref( $_[0] ) eq 'HASH' } ),
                 'gcal_title'        => 'Test Calendar',
-                'gcal_updated'      => re(qr/^\d+\-\d+\-\d+T\d+:\d+:\d+\.000Z$/),
+                'gcal_updated'      => re(qr/^\d+\-\d+\-\d+T\d+:\d+:\d+$/),
                 'gcal_updated_date' => re(qr/^\w+ \w+ \d+$/),
-                'gcal_uri'          => re(qr{http://www\.google\.com/calendar/feeds/6qrhpfk1utcs97g9u2o27g5ojo%40group\.calendar\.google\.com}),
+                'gcal_uri'          => re(qr{http://www\.google\.com/calendar/ical/6qrhpfk1utcs97g9u2o27g5ojo%40group\.calendar\.google\.com}),
                 'guests'            => $public ? []
                 : [
                     'you@example.com',
@@ -294,16 +294,16 @@ sub _get_target_datastruct {
                 'time'     => '10:00 AM',
                 'title'    => 'Recurring Limited - Middle',
                 'desc'     => 'Recurring Limited - Middle Desc',
-                'url'      => 'http://www.google.com/calendar/event?eid=MXYxYTlyNGFlaGw4YjVkNG1iMDBrcjY2djBfMTk4NjAxMjhUMTYwMDAwWiA2cXJocGZrMXV0Y3M5N2c5dTJvMjdnNW9qb0Bn',
+                'url'      => re(qr/www\.google\.com/),
                 'year'     => '1986'
             },
             {
                 'date'              => 'Tue Jan 28',
                 'gcal_entry_obj'    => code( sub { ref( $_[0] ) eq 'HASH' } ),
                 'gcal_title'        => 'Test Calendar',
-                'gcal_updated'      => re(qr/^\d+\-\d+\-\d+T\d+:\d+:\d+\.000Z$/),
+                'gcal_updated'      => re(qr/^\d+\-\d+\-\d+T\d+:\d+:\d+$/),
                 'gcal_updated_date' => re(qr/^\w+ \w+ \d+$/),
-                'gcal_uri'          => re(qr{http://www\.google\.com/calendar/feeds/6qrhpfk1utcs97g9u2o27g5ojo%40group\.calendar\.google\.com}),
+                'gcal_uri'          => re(qr{http://www\.google\.com/calendar/ical/6qrhpfk1utcs97g9u2o27g5ojo%40group\.calendar\.google\.com}),
                 'guests'            => $public ? []
                 : [
                     'you@example.com',
@@ -312,17 +312,17 @@ sub _get_target_datastruct {
                 'location' => '',
                 'time'     => '10:38 AM',
                 'title'    => 'Space Shuttle Challenger STS-51-L',
-                'desc'     => undef(),
-                'url'      => 'http://www.google.com/calendar/event?eid=MjhhcTBwYXBnajVkY2o4NGxsY2dlaW9sbXMgNnFyaHBmazF1dGNzOTdnOXUybzI3ZzVvam9AZw',
+                'desc'     => '',
+                'url'      => re(qr/www\.google\.com/),
                 'year'     => '1986'
             },
             {
                 'date'              => 'Tue Jan 28',
                 'gcal_entry_obj'    => code( sub { ref( $_[0] ) eq 'HASH' } ),
                 'gcal_title'        => 'Test Calendar',
-                'gcal_updated'      => re(qr/^\d+\-\d+\-\d+T\d+:\d+:\d+\.000Z$/),
+                'gcal_updated'      => re(qr/^\d+\-\d+\-\d+T\d+:\d+:\d+$/),
                 'gcal_updated_date' => re(qr/^\w+ \w+ \d+$/),
-                'gcal_uri'          => re(qr{http://www\.google\.com/calendar/feeds/6qrhpfk1utcs97g9u2o27g5ojo%40group\.calendar\.google\.com}),
+                'gcal_uri'          => re(qr{http://www\.google\.com/calendar/ical/6qrhpfk1utcs97g9u2o27g5ojo%40group\.calendar\.google\.com}),
                 'guests'            => $public ? []
                 : [
                     'you@example.com',
@@ -331,17 +331,17 @@ sub _get_target_datastruct {
                 'location' => '',
                 'time'     => '11:00 AM',
                 'title'    => 'Recurring Limited - Start',
-                'desc'     => undef(),
-                'url'      => 'http://www.google.com/calendar/event?eid=MnFmNXI2ODdkajJ1MG43OWJrdmZlam9rNGdfMTk4NjAxMjhUMTcwMDAwWiA2cXJocGZrMXV0Y3M5N2c5dTJvMjdnNW9qb0Bn',
+                'desc'     => '',
+                'url'      => re(qr/www\.google\.com/),
                 'year'     => '1986'
             },
             {
                 'date'              => 'Tue Jan 28',
                 'gcal_entry_obj'    => code( sub { ref( $_[0] ) eq 'HASH' } ),
                 'gcal_title'        => 'Test Calendar',
-                'gcal_updated'      => re(qr/^\d+\-\d+\-\d+T\d+:\d+:\d+\.000Z$/),
+                'gcal_updated'      => re(qr/^\d+\-\d+\-\d+T\d+:\d+:\d+$/),
                 'gcal_updated_date' => re(qr/^\w+ \w+ \d+$/),
-                'gcal_uri'          => re(qr{http://www\.google\.com/calendar/feeds/6qrhpfk1utcs97g9u2o27g5ojo%40group\.calendar\.google\.com}),
+                'gcal_uri'          => re(qr{http://www\.google\.com/calendar/ical/6qrhpfk1utcs97g9u2o27g5ojo%40group\.calendar\.google\.com}),
                 'guests'            => $public ? []
                 : [
                     'you@example.com',
@@ -350,8 +350,8 @@ sub _get_target_datastruct {
                 'location' => '',
                 'time'     => '7:00 PM',
                 'title'    => 'Recurring Forever Test',
-                'desc'     => undef(),
-                'url'      => 'http://www.google.com/calendar/event?eid=NWlxanF2dThiajNoMG9xbDhlaTQ1MjZqNG9fMTk4NjAxMjlUMDEwMDAwWiA2cXJocGZrMXV0Y3M5N2c5dTJvMjdnNW9qb0Bn',
+                'desc'     => '',
+                'url'      => re(qr/www\.google\.com/),
                 'year'     => '1986'
             }
         ]
